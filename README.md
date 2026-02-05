@@ -24,6 +24,13 @@ A Python toolkit for ingesting, normalizing, and categorizing bank transactions 
 - **Orphaned Transfer Identification**: Finds transfers without matching pairs
 - **Comprehensive Reporting**: Detailed reconciliation statistics and analysis
 
+### Transaction Reporter
+- **Monthly Category Spending**: Track spending patterns across categories
+- **Account Balance Tracking**: Monitor balance changes over time
+- **Top Merchants Analysis**: Identify highest spending merchants
+- **Income vs Expenses Summary**: Detailed financial analysis with savings rates
+- **Multiple Export Formats**: Terminal display, Excel workbook, and CSV files
+
 ## Installation
 
 1. Install dependencies:
@@ -46,6 +53,7 @@ Or copy `.env.example` to `.env` and add your key there.
 from transaction_normalizer import TransactionNormalizer
 from transaction_categorizer import TransactionCategorizer
 from transaction_reconciler import TransactionReconciler
+from transaction_reporter import TransactionReporter
 
 # 1. Normalize bank CSV files
 normalizer = TransactionNormalizer()
@@ -59,17 +67,19 @@ df = normalizer.normalize_multiple(files)
 categorizer = TransactionCategorizer()
 categorizer.add_override('WOOLWORTHS', 'Groceries')
 categorizer.add_override('NETFLIX', 'Entertainment')
-categorized_df = categorizer.categorize(df)
+df = categorizer.categorize(df)
 
 # 3. Reconcile transactions
 reconciler = TransactionReconciler()
-result = reconciler.reconcile(categorized_df)
+result = reconciler.reconcile(df)
 print(reconciler.generate_report(result))
+df = result['reconciled_df']
 
-# 4. Save results
-result['reconciled_df'].to_csv('final_transactions.csv', index=False)
-result['orphaned_transfers'].to_csv('orphaned_transfers.csv', index=False)
-result['duplicates'].to_csv('duplicates.csv', index=False)
+# 4. Generate reports
+reporter = TransactionReporter(df)
+reporter.generate_all_reports(print_to_console=True)
+reporter.export_to_excel('financial_report.xlsx')
+reporter.export_to_csv('reports')
 ```
 
 ### Run Complete Example
@@ -211,12 +221,14 @@ The categorizer uses two persistent files:
 - [Transaction Normalizer API](README.md) - This file
 - [Transaction Categorizer Guide](CATEGORIZER_README.md) - Detailed categorizer docs
 - [Transaction Reconciler Guide](RECONCILER_README.md) - Detailed reconciliation docs
+- [Transaction Reporter Guide](REPORTER_README.md) - Detailed reporting docs
 
 ## Example Scripts
 
 - `test_normalizer.py` - Test normalization with sample files
 - `test_categorizer.py` - Test categorization with sample data
 - `test_reconciler.py` - Test reconciliation with sample data
+- `test_reporter.py` - Test reporting and export features
 - `example_complete_workflow.py` - Full end-to-end example
 
 ## API Reference

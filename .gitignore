@@ -16,8 +16,10 @@ __pycache__/
 
 # Generated files
 *.csv
+*.xlsx
 transaction_cache.json
 category_overrides.json
+reports/
 
 # IDE
 .vscode/
