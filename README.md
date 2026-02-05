@@ -18,6 +18,12 @@ A Python toolkit for ingesting, normalizing, and categorizing bank transactions 
 - **Manual Overrides**: Set persistent rules for specific merchants
 - **11 Categories**: Groceries, Dining, Transport, Utilities, Entertainment, Health, Shopping, Income, Transfer, Fees, Other
 
+### Transaction Reconciler
+- **Transfer Matching**: Automatically links transfers between accounts
+- **Duplicate Detection**: Flags potential duplicate transactions
+- **Orphaned Transfer Identification**: Finds transfers without matching pairs
+- **Comprehensive Reporting**: Detailed reconciliation statistics and analysis
+
 ## Installation
 
 1. Install dependencies:
@@ -39,6 +45,7 @@ Or copy `.env.example` to `.env` and add your key there.
 ```python
 from transaction_normalizer import TransactionNormalizer
 from transaction_categorizer import TransactionCategorizer
+from transaction_reconciler import TransactionReconciler
 
 # 1. Normalize bank CSV files
 normalizer = TransactionNormalizer()
@@ -52,13 +59,17 @@ df = normalizer.normalize_multiple(files)
 categorizer = TransactionCategorizer()
 categorizer.add_override('WOOLWORTHS', 'Groceries')
 categorizer.add_override('NETFLIX', 'Entertainment')
-
 categorized_df = categorizer.categorize(df)
 
-# 3. Analyze and save
-summary = categorizer.get_category_summary(categorized_df)
-print(summary)
-categorized_df.to_csv('categorized_transactions.csv', index=False)
+# 3. Reconcile transactions
+reconciler = TransactionReconciler()
+result = reconciler.reconcile(categorized_df)
+print(reconciler.generate_report(result))
+
+# 4. Save results
+result['reconciled_df'].to_csv('final_transactions.csv', index=False)
+result['orphaned_transfers'].to_csv('orphaned_transfers.csv', index=False)
+result['duplicates'].to_csv('duplicates.csv', index=False)
 ```
 
 ### Run Complete Example
@@ -199,11 +210,13 @@ The categorizer uses two persistent files:
 
 - [Transaction Normalizer API](README.md) - This file
 - [Transaction Categorizer Guide](CATEGORIZER_README.md) - Detailed categorizer docs
+- [Transaction Reconciler Guide](RECONCILER_README.md) - Detailed reconciliation docs
 
 ## Example Scripts
 
 - `test_normalizer.py` - Test normalization with sample files
 - `test_categorizer.py` - Test categorization with sample data
+- `test_reconciler.py` - Test reconciliation with sample data
 - `example_complete_workflow.py` - Full end-to-end example
 
 ## API Reference
