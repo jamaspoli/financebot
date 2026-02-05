@@ -13,6 +13,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.egg-info/
+dist/
+build/
 
 # Generated files
 *.csv
@@ -20,6 +23,9 @@ __pycache__/
 transaction_cache.json
 category_overrides.json
 reports/
+
+# FinanceBot CLI data
+.financebot/
 
 # IDE
 .vscode/

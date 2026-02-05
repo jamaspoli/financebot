@@ -1,6 +1,18 @@
 # FinanceBot
 
-A Python toolkit for ingesting, normalizing, and categorizing bank transactions from Westpac and Amex using AI.
+A comprehensive command-line toolkit for processing bank transactions with AI-powered categorization, reconciliation, and reporting.
+
+## Installation
+
+```bash
+# Install in development mode
+pip install -e .
+
+# Or install from requirements
+pip install -r requirements.txt
+```
+
+After installation, use the `financebot` command globally.
 
 ## Features
 
@@ -45,7 +57,29 @@ export ANTHROPIC_API_KEY='your-api-key-here'
 
 Or copy `.env.example` to `.env` and add your key there.
 
-## Quick Start
+## Quick Start (CLI)
+
+```bash
+# 1. Initialize
+financebot init
+
+# 2. Ingest CSV files
+financebot ingest westpac.csv --bank westpac
+financebot ingest amex.csv --bank amex
+
+# 3. Process transactions
+financebot reconcile
+
+# 4. Generate reports
+financebot report --excel
+
+# 5. Review status
+financebot status
+```
+
+See [CLI Documentation](CLI_README.md) for complete command reference.
+
+## Python API Usage
 
 ### Complete Workflow
 
@@ -218,6 +252,7 @@ The categorizer uses two persistent files:
 
 ## Documentation
 
+- [CLI Documentation](CLI_README.md) - **Complete command-line reference**
 - [Transaction Normalizer API](README.md) - This file
 - [Transaction Categorizer Guide](CATEGORIZER_README.md) - Detailed categorizer docs
 - [Transaction Reconciler Guide](RECONCILER_README.md) - Detailed reconciliation docs
