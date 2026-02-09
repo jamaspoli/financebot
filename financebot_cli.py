@@ -13,11 +13,16 @@ import os
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from transaction_normalizer import TransactionNormalizer
 from transaction_categorizer import TransactionCategorizer
 from transaction_reconciler import TransactionReconciler
 from transaction_reporter import TransactionReporter
+from transaction_reporter_v2 import EnhancedTransactionReporter
 
 
 class FinanceBotConfig:
@@ -210,9 +215,15 @@ def reconcile(skip_categorize: bool, skip_reconcile: bool):
             categorizer = TransactionCategorizer()
 
             # Count uncategorized
-            uncategorized = df[~df.get('category', pd.Series()).notna()].index
-            if len(uncategorized) > 0:
-                click.echo(f"   Categorizing {len(uncategorized)} transactions...")
+            if 'category' not in df.columns:
+                has_uncategorized = True
+                uncategorized_count = len(df)
+            else:
+                has_uncategorized = df['category'].isna().any()
+                uncategorized_count = df['category'].isna().sum()
+
+            if has_uncategorized:
+                click.echo(f"   Categorizing {uncategorized_count} transactions...")
 
                 df = categorizer.categorize(df)
                 config.save_transactions(df)
@@ -239,6 +250,9 @@ def reconcile(skip_categorize: bool, skip_reconcile: bool):
             # Save reconciled data
             df = result['reconciled_df']
             config.save_transactions(df)
+
+            # Also save to root for compatibility
+            df.to_csv('reconciled_transactions.csv', index=False)
 
             # Show summary
             click.echo(f"\n   ✅ Reconciliation complete!")
@@ -268,9 +282,12 @@ def reconcile(skip_categorize: bool, skip_reconcile: bool):
 @click.option('--csv', 'output_csv', is_flag=True, help='Generate CSV reports')
 @click.option('--console', 'output_console', is_flag=True, default=True, help='Display in console')
 @click.option('--output', '-o', default='financial_report.xlsx', help='Excel output filename')
-def report(output_excel: bool, output_csv: bool, output_console: bool, output: str):
+@click.option('--enhanced', is_flag=True, help='Use enhanced reporting (separate expenses, transfers, income)')
+def report(output_excel: bool, output_csv: bool, output_console: bool, output: str, enhanced: bool):
     """
     Generate financial reports.
+
+    Use --enhanced for separate Expense, Transfer, and Income analysis.
 
     Reports include:
     - Monthly spending by category
@@ -281,8 +298,7 @@ def report(output_excel: bool, output_csv: bool, output_console: bool, output: s
     Example:
         financebot report                    # Console output
         financebot report --excel            # Generate Excel
-        financebot report --csv              # Generate CSVs
-        financebot report --excel --csv      # Both formats
+        financebot report --enhanced --excel # Separate reports
     """
     df = config.get_transactions()
 
@@ -299,20 +315,32 @@ def report(output_excel: bool, output_csv: bool, output_console: bool, output: s
     click.echo(f"📊 Generating reports for {len(df)} transactions...\n")
 
     try:
-        reporter = TransactionReporter(df)
+        if enhanced:
+            # Use enhanced reporter with separate expense/transfer/income analysis
+            reporter = EnhancedTransactionReporter(df)
 
-        # Generate reports
-        reports = reporter.generate_all_reports(print_to_console=output_console)
+            if output_console:
+                reporter.print_expense_summary()
+                reporter.print_transfer_summary()
+                reporter.print_income_summary()
 
-        # Export to Excel
-        if output_excel or (not output_csv and not output_console):
-            click.echo(f"\n📄 Exporting to Excel: {output}")
-            reporter.export_to_excel(output, reports)
+            if output_excel or (not output_csv and not output_console):
+                reporter.export_all_to_excel(output)
 
-        # Export to CSV
-        if output_csv:
-            click.echo("\n📁 Exporting to CSV: reports/")
-            reporter.export_to_csv('reports', reports)
+        else:
+            # Use original reporter
+            reporter = TransactionReporter(df)
+            reports = reporter.generate_all_reports(print_to_console=output_console)
+
+            # Export to Excel
+            if output_excel or (not output_csv and not output_console):
+                click.echo(f"\n📄 Exporting to Excel: {output}")
+                reporter.export_to_excel(output, reports)
+
+            # Export to CSV
+            if output_csv:
+                click.echo("\n📁 Exporting to CSV: reports/")
+                reporter.export_to_csv('reports', reports)
 
         click.echo("\n✅ Reports generated successfully!")
 

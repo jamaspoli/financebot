@@ -27,6 +27,10 @@ class TransactionCategorizer:
         'Income',
         'Transfer',
         'Fees',
+        'Education',
+        'Home Renovation',
+        'Insurance',
+        'Property',
         'Other'
     ]
 
@@ -147,6 +151,10 @@ Rules:
 - Income: Salary, payments received (positive amounts usually)
 - Transfer: Account transfers, payments between own accounts
 - Fees: Bank fees, service charges, foreign transaction fees
+- Education: School fees, tuition, educational expenses, school donations
+- Home Renovation: Construction, bathroom/kitchen renovations, major home improvements
+- Insurance: All insurance (life, health, car, home, travel, income protection)
+- Property: Property management, real estate, strata fees, property services
 - Other: Anything that doesn't fit above categories
 
 Be concise and accurate."""

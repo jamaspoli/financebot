@@ -59,28 +59,39 @@ class TransactionReconciler:
         result_df = df.copy()
         result_df['transfer_pair_id'] = None
 
-        # Filter to transfers only (if category column exists)
-        if category_col in result_df.columns:
-            transfer_mask = result_df[category_col] == 'Transfer'
-        else:
-            # Heuristic: look for transfers by description keywords
-            transfer_keywords = ['TRANSFER', 'TFR', 'BPAY', 'PAYMENT']
-            desc_col = 'description' if 'description' in result_df.columns else None
-            if desc_col:
-                transfer_mask = result_df[desc_col].str.upper().str.contains(
-                    '|'.join(transfer_keywords), na=False
-                )
-            else:
-                # If no category and no description, can't identify transfers
-                return result_df, pd.DataFrame()
+        # Ensure date column is datetime
+        result_df[date_col] = pd.to_datetime(result_df[date_col])
 
+        # Look for potential transfers using multiple heuristics
+        # Strategy: Cast a wide net, then narrow down with matching logic
+        transfer_mask = pd.Series([False] * len(result_df), index=result_df.index)
+
+        # Include transactions already marked as Transfer
+        if category_col in result_df.columns:
+            transfer_mask |= result_df[category_col] == 'Transfer'
+
+        # Include transactions with transfer-like descriptions
+        transfer_keywords = ['TRANSFER', 'TFR', 'BPAY', 'PAYMENT', 'DEPOSIT ONLINE',
+                            'WITHDRAWAL', 'ONLINE PAYMENT RECEIVED']
+        desc_col = 'description' if 'description' in result_df.columns else None
+        if desc_col:
+            for keyword in transfer_keywords:
+                transfer_mask |= result_df[desc_col].str.upper().str.contains(
+                    keyword, na=False
+                )
+
+        # Also include any transaction that might have a matching opposite amount
+        # (We'll filter these properly in the matching logic)
         transfers = result_df[transfer_mask].copy()
 
         if len(transfers) == 0:
             return result_df, pd.DataFrame()
 
-        # Sort by date for efficient matching
-        transfers = transfers.sort_values(date_col).reset_index(drop=True)
+        # Ensure date column is datetime
+        transfers[date_col] = pd.to_datetime(transfers[date_col])
+
+        # Sort by date for efficient matching (keep original index)
+        transfers = transfers.sort_values(date_col)
 
         matched_indices = set()
         pair_id = 1
@@ -99,10 +110,10 @@ class TransactionReconciler:
             date_min = date - timedelta(days=self.date_window_days)
             date_max = date + timedelta(days=self.date_window_days)
 
-            # Find potential matches
+            # Find potential matches (look both forward and backward)
             potential_matches = transfers[
-                (transfers.index > idx) &  # Only look forward
                 (~transfers.index.isin(matched_indices)) &
+                (transfers.index != idx) &  # Don't match with self
                 (transfers[account_col] != account) &
                 (transfers[date_col] >= date_min) &
                 (transfers[date_col] <= date_max) &
@@ -120,6 +131,11 @@ class TransactionReconciler:
                 # Mark both as matched with the same pair_id
                 result_df.loc[row.name, 'transfer_pair_id'] = pair_id
                 result_df.loc[match_idx, 'transfer_pair_id'] = pair_id
+
+                # Override category to Transfer for matched pairs
+                if category_col in result_df.columns:
+                    result_df.loc[row.name, category_col] = 'Transfer'
+                    result_df.loc[match_idx, category_col] = 'Transfer'
 
                 matched_indices.add(idx)
                 matched_indices.add(match_idx)

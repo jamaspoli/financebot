@@ -12,7 +12,8 @@ setup(
         'transaction_normalizer',
         'transaction_categorizer',
         'transaction_reconciler',
-        'transaction_reporter'
+        'transaction_reporter',
+        'transaction_reporter_v2'
     ],
     install_requires=[
         'pandas>=1.3.0',
