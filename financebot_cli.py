@@ -109,6 +109,32 @@ def cli():
 
     Process bank transactions with AI-powered categorization, reconciliation,
     and comprehensive reporting.
+
+    \b
+    COMMANDS:
+      init        Initialize FinanceBot in current directory
+      ingest      Import CSV files from Westpac or Amex
+      reconcile   Categorize and reconcile transactions (uses Claude API)
+      report      Generate financial reports in Excel/CSV/console
+      review      Review and fix transaction categories
+      override    Manage manual category overrides
+      status      Show current transaction counts and stats
+
+    \b
+    TYPICAL WORKFLOW:
+      1. financebot init
+      2. financebot ingest statement.csv --bank westpac
+      3. financebot reconcile
+      4. financebot report --enhanced -o report.xlsx
+
+    \b
+    For detailed help on any command:
+      financebot COMMAND --help
+
+    \b
+    Requirements:
+      - ANTHROPIC_API_KEY environment variable (in .env file)
+      - Python 3.9+
     """
     pass
 
@@ -120,11 +146,30 @@ def cli():
 @click.option('--force', is_flag=True, help='Re-ingest file even if already processed')
 def ingest(filepath: str, bank: str, force: bool):
     """
-    Ingest a new CSV file from Westpac or Amex.
+    Import and normalize bank CSV files.
 
-    Example:
-        financebot ingest westpac_jan.csv --bank westpac
-        financebot ingest amex_feb.csv --bank amex
+    \b
+    Converts bank-specific CSV formats into a unified format:
+    - Date, Amount, Description, Account Name, Balance
+
+    \b
+    SUPPORTED BANKS:
+      westpac    Westpac transaction export (Date, Debit/Credit columns)
+      amex       American Express statement (multiline CSV format)
+
+    \b
+    FLAGS:
+      --bank TYPE    Bank type (required): westpac or amex
+      --force        Re-ingest file even if already processed
+
+    \b
+    Examples:
+      financebot ingest statement.csv --bank westpac
+      financebot ingest amex_jan2025.csv --bank amex
+      financebot ingest old_file.csv --bank westpac --force
+
+    \b
+    After ingesting, run 'financebot reconcile' to categorize transactions.
     """
     filepath = Path(filepath).resolve()
 
@@ -186,17 +231,24 @@ def ingest(filepath: str, bank: str, force: bool):
 @cli.command()
 @click.option('--skip-categorize', is_flag=True, help='Skip AI categorization')
 @click.option('--skip-reconcile', is_flag=True, help='Skip reconciliation')
-def reconcile(skip_categorize: bool, skip_reconcile: bool):
+@click.option('--force-recategorize', is_flag=True, help='Clear cache and force fresh AI categorization')
+def reconcile(skip_categorize: bool, skip_reconcile: bool, force_recategorize: bool):
     """
     Process all transactions: categorize and reconcile.
 
     This runs the full pipeline:
-    1. AI categorization (uses Claude API)
+    1. AI categorization (uses Claude API with caching)
     2. Transfer matching and duplicate detection
 
-    Example:
-        financebot reconcile
-        financebot reconcile --skip-categorize  # Only reconcile
+    Examples:
+        financebot reconcile                        # Normal reconcile
+        financebot reconcile --skip-categorize      # Only reconcile transfers
+        financebot reconcile --force-recategorize   # Clear cache & recategorize all
+
+    Use --force-recategorize when:
+    - You've added new categories to the code
+    - You've updated category rules
+    - You want fresh AI categorization decisions
     """
     df = config.get_transactions()
 
@@ -213,6 +265,17 @@ def reconcile(skip_categorize: bool, skip_reconcile: bool):
 
         try:
             categorizer = TransactionCategorizer()
+
+            # Force recategorization if requested
+            if force_recategorize:
+                click.echo("   🔄 Force recategorize enabled")
+                click.echo("   Clearing cache...")
+                categorizer.clear_cache(save=True)
+
+                # Remove existing categories to force fresh categorization
+                if 'category' in df.columns:
+                    df = df.drop(columns=['category'])
+                click.echo(f"   Will recategorize all {len(df)} transactions with fresh AI")
 
             # Count uncategorized
             if 'category' not in df.columns:
@@ -285,20 +348,38 @@ def reconcile(skip_categorize: bool, skip_reconcile: bool):
 @click.option('--enhanced', is_flag=True, help='Use enhanced reporting (separate expenses, transfers, income)')
 def report(output_excel: bool, output_csv: bool, output_console: bool, output: str, enhanced: bool):
     """
-    Generate financial reports.
+    Generate financial reports from categorized transactions.
 
-    Use --enhanced for separate Expense, Transfer, and Income analysis.
+    \b
+    FLAGS:
+      --excel              Generate Excel report (default if no flags)
+      --csv                Generate CSV reports
+      --console            Display summary in console (default: true)
+      -o, --output FILE    Excel output filename (default: financial_report.xlsx)
+      --enhanced           Generate enhanced multi-sheet report (RECOMMENDED)
 
-    Reports include:
-    - Monthly spending by category
-    - Account balances over time
-    - Top merchants by spending
-    - Income vs expenses summary
+    \b
+    ENHANCED REPORT INCLUDES:
+      - Separate Expense/Transfer/Income analysis
+      - Monthly spending by category
+      - Top 50 merchants (including one-time large expenses)
+      - Transfer pair matching summary
+      - Income source breakdown
+      - Complete transaction list with categories
 
-    Example:
-        financebot report                    # Console output
-        financebot report --excel            # Generate Excel
-        financebot report --enhanced --excel # Separate reports
+    \b
+    BASIC REPORT INCLUDES:
+      - Monthly income vs expenses
+      - Category breakdown
+      - Account balances
+      - Top merchants (recurring only)
+
+    \b
+    Examples:
+      financebot report                              # Console summary
+      financebot report --enhanced -o report.xlsx    # Full enhanced Excel
+      financebot report --csv                        # CSV files in reports/
+      financebot report --enhanced --csv --excel     # Both formats
     """
     df = config.get_transactions()
 
